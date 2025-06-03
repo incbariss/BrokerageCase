@@ -1,7 +1,9 @@
 package task.ing.mapper;
 
-import task.ing.model.dto.OrderDto;
+import task.ing.model.dto.request.OrderRequestDto;
+import task.ing.model.dto.response.OrderResponseDto;
 import task.ing.model.entity.AssetList;
+import task.ing.model.entity.Customer;
 import task.ing.model.entity.Order;
 import task.ing.model.enums.OrderStatus;
 
@@ -9,26 +11,27 @@ import java.time.LocalDateTime;
 
 public interface OrderMapper {
 
-    static Order toEntity(OrderDto dto, AssetList assetList) {
+    static Order toEntity(OrderRequestDto dto, AssetList assetList, Customer customer) {
         Order order = new Order();
-        order.setCustomerId(dto.customerId());
+        order.setCustomer(customer);
         order.setAssetName(dto.assetName());
         order.setSize(dto.size());
         order.setPrice(dto.price());
         order.setOrderSide(dto.orderSide());
         order.setOrderStatus(OrderStatus.PENDING);
-        order.setCreateDate(LocalDateTime.now());
         order.setAssetList(assetList);
         return order;
     }
 
-    static OrderDto toDto(Order order) {
-        return new OrderDto(
-                order.getCustomerId(),
+    static OrderResponseDto toDto(Order order) {
+        return new OrderResponseDto(
+                order.getCustomer().getId(),
                 order.getAssetName(),
                 order.getPrice(),
                 order.getSize(),
-                order.getOrderSide()
+                order.getCreateDate(),
+                order.getOrderSide(),
+                order.getOrderStatus()
                 );
     }
 

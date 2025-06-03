@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
+@Table(name = "assets")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -14,8 +15,6 @@ public class Asset {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    private Long customerId;
 
     private String assetName;
 
@@ -27,5 +26,7 @@ public class Asset {
     @JoinColumn(name = "asset_list_id")
     private AssetList assetList;
 
-    //Customer ileride
+    @ManyToOne
+    @JoinColumn(name = "customer_id")
+    private Customer customer;
 }

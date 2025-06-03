@@ -4,31 +4,33 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import task.ing.model.enums.OrderSide;
 import task.ing.model.enums.OrderStatus;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
+@Table(name = "orders")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
 public class Order {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long customerId;
-
     private String assetName;
 
     private double size;
 
     private BigDecimal price;
-
-    private LocalDateTime createDate;
 
     @Enumerated(EnumType.STRING)
     private OrderSide orderSide;
@@ -40,5 +42,15 @@ public class Order {
     @JoinColumn(name = "asset_list_id")
     private AssetList assetList;
 
-    //Customer ileride
+    @ManyToOne
+    @JoinColumn(name = "customer_id")
+    private Customer customer;
+
+    @CreatedDate
+    @Column(updatable = false)
+    private LocalDate createDate;
+
+    @CreatedBy
+    @Column(updatable = false)
+    private String createdBy;
 }

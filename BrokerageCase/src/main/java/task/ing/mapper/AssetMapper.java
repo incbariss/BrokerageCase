@@ -1,12 +1,13 @@
 package task.ing.mapper;
 
-import task.ing.model.dto.AssetDto;
+import task.ing.model.dto.request.AssetRequestDto;
+import task.ing.model.dto.response.AssetResponseDto;
 import task.ing.model.entity.Asset;
 
 public interface AssetMapper {
 
-    static AssetDto toDto(Asset asset) {
-        return new AssetDto(
+    static AssetResponseDto toDto(Asset asset) {
+        return new AssetResponseDto(
                 asset.getAssetName(),
                 asset.getSize(),
                 asset.getUsableSize(),

@@ -1,8 +1,8 @@
-package task.ing.model.dto;
+package task.ing.model.dto.response;
 
 import java.math.BigDecimal;
 
-public record AssetDto(
+public record AssetResponseDto(
 
         String assetName,
 

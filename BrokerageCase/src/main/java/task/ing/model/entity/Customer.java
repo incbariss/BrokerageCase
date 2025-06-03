@@ -5,22 +5,24 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-
 @Entity
-@Table(name = "assetlist")
+@Table(name = "customers")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class AssetList {
+public class Customer {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String assetName;
+    private String name;
 
-    private String assetFullName;
+    private String surname;
 
-    private BigDecimal currentPrice;
+    private String email;
+
+    private String username;
+
+    private String password;
 }
