@@ -51,4 +51,12 @@ public class OrderController {
         return ResponseEntity.ok(responseDto);
     }
 
+    @PostMapping("/approve-match")
+    public ResponseEntity<String> approveMatchOrders(
+            @RequestParam Long buyOrderId,
+            @RequestParam Long sellOrderId) {
+        orderService.approveMatchedOrders(buyOrderId, sellOrderId);
+        return ResponseEntity.ok("Orders matched and asset price updated successfully");
+    }
+
 }
