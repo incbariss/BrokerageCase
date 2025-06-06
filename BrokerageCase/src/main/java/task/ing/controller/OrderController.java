@@ -11,7 +11,6 @@ import task.ing.model.dto.response.OrderResponseDto;
 import task.ing.service.OrderService;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -36,10 +35,10 @@ public class OrderController {
         return ResponseEntity.ok(orders);
     }
 
-    @DeleteMapping("/{orderId}")
-    public ResponseEntity<Void> deleteOrder(
+    @DeleteMapping("/cancel/{orderId}")
+    public ResponseEntity<Void> cancelOrder(
             @PathVariable @Positive(message = "Order ID must be positive")  Long orderId) {
-        orderService.deleteOrder(orderId);
+        orderService.cancelOrder(orderId);
         return ResponseEntity.noContent().build();
     }
 

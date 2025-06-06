@@ -29,4 +29,7 @@ public class Asset {
     @ManyToOne
     @JoinColumn(name = "customer_id")
     private Customer customer;
+
+    @Column(nullable = false)
+    private boolean isDeleted = false;
 }

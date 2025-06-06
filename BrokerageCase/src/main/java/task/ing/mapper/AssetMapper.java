@@ -1,6 +1,5 @@
 package task.ing.mapper;
 
-import task.ing.model.dto.request.AssetRequestDto;
 import task.ing.model.dto.response.AssetResponseDto;
 import task.ing.model.entity.Asset;
 

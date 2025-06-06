@@ -47,6 +47,7 @@ public class OrderService {
             }
 
             if (dto.price().compareTo(assetList.getCurrentPrice()) == 0) {
+                tryAsset.setSize(tryAsset.getSize() - totalCost.doubleValue());
                 tryAsset.setUsableSize(tryAsset.getUsableSize() - totalCost.doubleValue());
                 assetRepository.save(tryAsset);
 
@@ -65,6 +66,8 @@ public class OrderService {
 
                 return OrderMapper.toDto(order);
             } else {
+                tryAsset.setUsableSize(tryAsset.getUsableSize() - totalCost.doubleValue());
+
                 Order order = OrderMapper.toEntity(dto, assetList, customer);
                 order.setOrderStatus(OrderStatus.PENDING);
                 return OrderMapper.toDto(orderRepository.save(order));
@@ -76,6 +79,7 @@ public class OrderService {
             }
 
             if (dto.price().compareTo(assetList.getCurrentPrice()) == 0) {
+                asset.setSize(asset.getSize() - dto.size());
                 asset.setUsableSize(asset.getUsableSize() - dto.size());
                 assetRepository.save(asset);
 
@@ -94,6 +98,8 @@ public class OrderService {
 
                 return OrderMapper.toDto(order);
             } else {
+                asset.setUsableSize(asset.getUsableSize() - dto.size());
+
                 Order order = OrderMapper.toEntity(dto, assetList, customer);
                 order.setOrderStatus(OrderStatus.PENDING);
                 return OrderMapper.toDto(orderRepository.save(order));
@@ -103,7 +109,7 @@ public class OrderService {
     }
 
     @Transactional
-    public void deleteOrder(Long orderId) {
+    public void cancelOrder(Long orderId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
@@ -188,37 +194,43 @@ public class OrderService {
             throw new RuntimeException("Assets do not match");
         }
 
-        double matchedSize = Math.min(buyOrder.getSize(), sellOrder.getSize());
+        BigDecimal matchedSize = BigDecimal.valueOf(buyOrder.getSize()).min(BigDecimal.valueOf(sellOrder.getSize()));
+        BigDecimal totalPrice = sellOrder.getPrice().multiply(matchedSize);
 
         AssetList assetList = buyOrder.getAssetList();
         assetList.setCurrentPrice(buyOrder.getPrice());
         assetListRepository.save(assetList);
 
+        Asset buyerTryAsset = getCustomerAsset(buyOrder.getCustomer().getId(), "TRY");
+        buyerTryAsset.setSize(BigDecimal.valueOf(buyerTryAsset.getSize()).subtract(totalPrice).doubleValue());
+        assetRepository.save(buyerTryAsset);
+
         Asset buyerAsset = getOrCreateCustomerAsset(buyOrder.getCustomer(), buyOrder.getAssetName(), assetList);
-        buyerAsset.setSize(buyerAsset.getSize() + matchedSize);
-        buyerAsset.setUsableSize(buyerAsset.getUsableSize() + matchedSize);
+        buyerAsset.setSize(BigDecimal.valueOf(buyerAsset.getSize()).add(matchedSize).doubleValue());
+        buyerAsset.setUsableSize(BigDecimal.valueOf(buyerAsset.getUsableSize()).add(matchedSize).doubleValue());
         assetRepository.save(buyerAsset);
 
         Asset sellerTryAsset = getCustomerAsset(sellOrder.getCustomer().getId(), "TRY");
-        double totalPrice = sellOrder.getPrice().doubleValue() * matchedSize;
-        sellerTryAsset.setSize(sellerTryAsset.getSize() + totalPrice);
-        sellerTryAsset.setUsableSize(sellerTryAsset.getUsableSize() + totalPrice);
+        sellerTryAsset.setSize(BigDecimal.valueOf(sellerTryAsset.getSize()).add(totalPrice).doubleValue());
+        sellerTryAsset.setUsableSize(BigDecimal.valueOf(sellerTryAsset.getUsableSize()).add(totalPrice).doubleValue());
         assetRepository.save(sellerTryAsset);
 
         Asset sellerAsset = getCustomerAsset(sellOrder.getCustomer().getId(), sellOrder.getAssetName());
-        sellerAsset.setSize(sellerAsset.getSize() - matchedSize);
-        sellerAsset.setUsableSize(sellerAsset.getUsableSize() - matchedSize);
+        sellerAsset.setSize(BigDecimal.valueOf(sellerAsset.getSize()).subtract(matchedSize).doubleValue());
         assetRepository.save(sellerAsset);
 
-        if (buyOrder.getSize() > matchedSize) {
-            buyOrder.setSize(buyOrder.getSize() - matchedSize);
+        BigDecimal buyRemaining = BigDecimal.valueOf(buyOrder.getSize()).subtract(matchedSize);
+        BigDecimal sellRemaining = BigDecimal.valueOf(sellOrder.getSize()).subtract(matchedSize);
+
+        if (buyRemaining.compareTo(BigDecimal.ZERO) > 0) {
+            buyOrder.setSize(buyRemaining.doubleValue());
             buyOrder.setOrderStatus(OrderStatus.PENDING);
         } else {
             buyOrder.setOrderStatus(OrderStatus.MATCHED);
         }
 
-        if (sellOrder.getSize() > matchedSize) {
-            sellOrder.setSize(sellOrder.getSize() - matchedSize);
+        if (sellRemaining.compareTo(BigDecimal.ZERO) > 0) {
+            sellOrder.setSize(sellRemaining.doubleValue());
             sellOrder.setOrderStatus(OrderStatus.PENDING);
         } else {
             sellOrder.setOrderStatus(OrderStatus.MATCHED);

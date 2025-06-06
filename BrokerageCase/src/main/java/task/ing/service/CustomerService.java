@@ -48,6 +48,43 @@ public class CustomerService {
         assetRepository.save(tryAsset);
 
         return CustomerMapper.toDto(savedCustomer);
-
     }
+
+    @Transactional
+    public CustomerResponseDto updateCustomer(Long id, CustomerRequestDto dto) {
+        Customer customer = customerRepository.findByIdAndIsDeletedFalse(id)
+                .orElseThrow(() -> new RuntimeException("Customer not found or deleted"));
+
+        customer.setName(dto.name());
+        customer.setSurname(dto.surname());
+        customer.setEmail(dto.email());
+        customer.setUsername(dto.username());
+        customer.setPassword(dto.password());
+
+        Customer updated = customerRepository.save(customer);
+        return CustomerMapper.toDto(updated);
+    }
+
+    @Transactional
+    public void softDeleteCustomer(Long id) {
+        Customer customer = customerRepository.findByIdAndIsDeletedFalse(id)
+                .orElseThrow(() -> new RuntimeException("Customer not found or already deleted"));
+
+        customer.setDeleted(true);
+        customerRepository.save(customer);
+    }
+
+    @Transactional
+    public void restoreCustomer(Long id) {
+        Customer customer = customerRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Customer not found"));
+
+        if (!customer.isDeleted()) {
+            throw new RuntimeException("Customer is not deleted");
+        }
+
+        customer.setDeleted(false);
+        customerRepository.save(customer);
+    }
+
 }
