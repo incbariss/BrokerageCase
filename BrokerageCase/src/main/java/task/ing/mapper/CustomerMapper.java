@@ -19,8 +19,11 @@ public interface CustomerMapper {
 
     static CustomerResponseDto toDto(Customer customer) {
         return new CustomerResponseDto(
+                customer.getId(),
                 customer.getName(),
-                customer.getUsername()
+                customer.getSurname(),
+                customer.getUsername(),
+                customer.getEmail()
         );
     }
 }

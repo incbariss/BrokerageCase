@@ -2,7 +2,6 @@ package task.ing.mapper;
 
 import task.ing.model.dto.response.AssetResponseDto;
 import task.ing.model.dto.response.CustomerAssetsResponseDto;
-import task.ing.model.entity.Asset;
 import task.ing.model.entity.Customer;
 
 import java.util.List;

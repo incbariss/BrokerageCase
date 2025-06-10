@@ -5,7 +5,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import task.ing.mapper.AssetMapper;
 import task.ing.mapper.CustomerAssetMapper;
-import task.ing.mapper.CustomerMapper;
 import task.ing.model.dto.request.AssetCreateRequestDto;
 import task.ing.model.dto.request.AssetUpdateRequestDto;
 import task.ing.model.dto.response.AssetResponseDto;
@@ -13,6 +12,7 @@ import task.ing.model.dto.response.CustomerAssetsResponseDto;
 import task.ing.model.entity.Asset;
 import task.ing.model.entity.AssetList;
 import task.ing.model.entity.Customer;
+import task.ing.model.enums.Role;
 import task.ing.repository.AssetListRepository;
 import task.ing.repository.AssetRepository;
 import task.ing.repository.CustomerRepository;
@@ -29,19 +29,24 @@ public class AssetService {
     private final AssetListRepository assetListRepository;
     private final CustomerRepository customerRepository;
 
-    public List<AssetResponseDto> getAssetsByCustomerId(Long customerId) {
+    @Transactional
+    public List<AssetResponseDto> getAssetsByCustomerId(Long customerId, String currentUsername) {
+        Customer currentUser = customerRepository.findByUsername(currentUsername)
+                .orElseThrow(() -> new RuntimeException("Current user not found"));
+
+        Customer targetCustomer = customerRepository.findByIdAndIsDeletedFalse(customerId)
+                .orElseThrow(() -> new RuntimeException("Target customer not found or deleted"));
+
+        if (!currentUser.getRole().equals(Role.ROLE_ADMIN) && !currentUser.getId().equals(targetCustomer.getId())) {
+            throw new RuntimeException("You are not authorized to view these assets");
+        }
+
         List<Asset> assets = assetRepository.findByCustomerIdAndIsDeletedFalse(customerId);
         return assets.stream()
                 .map(AssetMapper::toDto)
                 .collect(Collectors.toList());
     }
 
-//    public List<AssetResponseDto> getAllAssets() {
-//        List<Asset> allAssets = assetRepository.findByIsDeletedFalse();
-//        return allAssets.stream()
-//                .map(AssetMapper::toDto)
-//                .collect(Collectors.toList());
-//    }
 
     public List<CustomerAssetsResponseDto> getAllAssetsGroupedByCustomer() {
         List<Customer> customers = customerRepository.findAllByIsDeletedFalse();
@@ -95,8 +100,6 @@ public class AssetService {
         asset.setDeleted(false);
         assetRepository.save(asset);
     }
-
-
 
 
 }

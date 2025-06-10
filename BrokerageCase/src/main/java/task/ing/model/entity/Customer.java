@@ -4,7 +4,13 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import task.ing.model.enums.Role;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Entity
@@ -12,6 +18,7 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
 public class Customer {
 
     @Id
@@ -24,9 +31,14 @@ public class Customer {
 
     private String email;
 
+    @Column(nullable = false, unique = true)
     private String username;
 
     private String password;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Role role;
 
     @OneToMany(mappedBy = "customer")
     private List<Asset> assets;
@@ -36,6 +48,16 @@ public class Customer {
 
     @Column(nullable = false)
     private boolean isDeleted = false;
+
+    @CreatedDate
+    @Column(updatable = false)
+    private LocalDate createdDate;
+
+    @LastModifiedDate
+    private LocalDate lastModifiedDate;
+
+    @LastModifiedBy
+    private String lastModifiedBy;
 
 
 }

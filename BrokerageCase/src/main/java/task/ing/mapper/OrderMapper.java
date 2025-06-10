@@ -7,8 +7,6 @@ import task.ing.model.entity.Customer;
 import task.ing.model.entity.Order;
 import task.ing.model.enums.OrderStatus;
 
-import java.time.LocalDateTime;
-
 public interface OrderMapper {
 
     static Order toEntity(OrderRequestDto dto, AssetList assetList, Customer customer) {
@@ -29,10 +27,10 @@ public interface OrderMapper {
                 order.getAssetName(),
                 order.getPrice(),
                 order.getSize(),
-                order.getCreateDate(),
+                order.getCreatedDate(),
                 order.getOrderSide(),
                 order.getOrderStatus()
-                );
+        );
     }
 
 }

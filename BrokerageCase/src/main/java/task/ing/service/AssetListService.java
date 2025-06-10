@@ -3,7 +3,6 @@ package task.ing.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import task.ing.mapper.AssetListMapper;
-import task.ing.mapper.AssetMapper;
 import task.ing.model.dto.request.AssetListRequestDto;
 import task.ing.model.dto.response.AssetListResponseDto;
 import task.ing.model.entity.AssetList;
@@ -29,7 +28,8 @@ public class AssetListService {
 
     public AssetListResponseDto addAsset(AssetListRequestDto dto) {
         assetListRepository.findByAssetName(dto.assetName())
-                .ifPresent(asset -> {throw new IllegalArgumentException("Asset with this name already exist.");
+                .ifPresent(asset -> {
+                    throw new IllegalArgumentException("Asset with this name already exist.");
                 });
 
         AssetList asset = AssetListMapper.toEntity(dto);

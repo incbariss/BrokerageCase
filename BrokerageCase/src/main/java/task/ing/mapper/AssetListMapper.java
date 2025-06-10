@@ -1,6 +1,5 @@
 package task.ing.mapper;
 
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import task.ing.model.dto.request.AssetListRequestDto;
 import task.ing.model.dto.response.AssetListResponseDto;
 import task.ing.model.entity.AssetList;
@@ -21,6 +20,6 @@ public interface AssetListMapper {
                 assetList.getAssetName(),
                 assetList.getAssetFullName(),
                 assetList.getCurrentPrice()
-                );
+        );
     }
 }

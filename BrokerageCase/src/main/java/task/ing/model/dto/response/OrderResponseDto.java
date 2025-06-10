@@ -5,7 +5,6 @@ import task.ing.model.enums.OrderStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 public record OrderResponseDto(
 
@@ -17,7 +16,7 @@ public record OrderResponseDto(
 
         double size,
 
-        LocalDate createDate,
+        LocalDate createdDate,
 
         OrderSide orderSide,
 

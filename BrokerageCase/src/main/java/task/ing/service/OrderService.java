@@ -12,6 +12,7 @@ import task.ing.model.entity.Customer;
 import task.ing.model.entity.Order;
 import task.ing.model.enums.OrderSide;
 import task.ing.model.enums.OrderStatus;
+import task.ing.model.enums.Role;
 import task.ing.repository.AssetListRepository;
 import task.ing.repository.AssetRepository;
 import task.ing.repository.CustomerRepository;
@@ -31,9 +32,16 @@ public class OrderService {
     private final CustomerRepository customerRepository;
 
     @Transactional
-    public OrderResponseDto createOrder(OrderRequestDto dto) {
-        Customer customer = customerRepository.findById(dto.customerId())
-                .orElseThrow(() -> new RuntimeException("Customer not found"));
+    public OrderResponseDto createOrder(OrderRequestDto dto, String currentUsername) {
+        Customer currentUser = customerRepository.findByUsername(currentUsername)
+                .orElseThrow(() -> new RuntimeException("Current user not found"));
+
+        if (!currentUser.getId().equals(dto.customerId())) {
+            throw new RuntimeException("You are not authorized to create an order for another user");
+        }
+
+        Customer customer = customerRepository.findByIdAndIsDeletedFalse(dto.customerId())
+                .orElseThrow(() -> new RuntimeException("Customer not found or deleted"));
 
         AssetList assetList = assetListRepository.findByAssetName(dto.assetName())
                 .orElseThrow(() -> new RuntimeException("Asset not found"));
@@ -59,7 +67,6 @@ public class OrderService {
                 assetListRepository.save(assetList);
 
                 Asset buyerAsset = getOrCreateCustomerAsset(customer, dto.assetName(), assetList);
-
                 buyerAsset.setSize(buyerAsset.getSize() + dto.size());
                 buyerAsset.setUsableSize(buyerAsset.getUsableSize() + dto.size());
                 assetRepository.save(buyerAsset);
@@ -91,9 +98,11 @@ public class OrderService {
                 assetListRepository.save(assetList);
 
                 Asset sellerTryAsset = getCustomerAsset(customer.getId(), "TRY");
-                double totalPrice = dto.price().doubleValue() * dto.size();
-                sellerTryAsset.setSize(sellerTryAsset.getSize() + totalPrice);
-                sellerTryAsset.setUsableSize(sellerTryAsset.getUsableSize() + totalPrice);
+//                double totalPrice = dto.price().doubleValue() * dto.size();
+//                sellerTryAsset.setSize(sellerTryAsset.getSize() + totalPrice);
+//                sellerTryAsset.setUsableSize(sellerTryAsset.getUsableSize() + totalPrice);
+                sellerTryAsset.setSize(sellerTryAsset.getSize() + totalCost.doubleValue());
+                sellerTryAsset.setUsableSize(sellerTryAsset.getUsableSize() + totalCost.doubleValue());
                 assetRepository.save(sellerTryAsset);
 
                 return OrderMapper.toDto(order);
@@ -105,13 +114,23 @@ public class OrderService {
                 return OrderMapper.toDto(orderRepository.save(order));
             }
         }
+
         throw new RuntimeException("Invalid order side");
     }
 
+
     @Transactional
-    public void cancelOrder(Long orderId) {
+    public void cancelOrder(Long orderId, String currentUsername) {
+        Customer currentUser = customerRepository.findByUsername(currentUsername)
+                .orElseThrow(() -> new RuntimeException("Current user not found"));
+
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        if (!currentUser.getRole().equals(Role.ROLE_ADMIN) &&
+                !order.getCustomer().getId().equals(currentUser.getId())) {
+            throw new RuntimeException("You are not authorized to cancel this order");
+        }
 
         if (order.getOrderStatus() != OrderStatus.PENDING) {
             throw new RuntimeException("Only pending orders can be deleted");
@@ -133,21 +152,36 @@ public class OrderService {
     }
 
 
-    public List<OrderResponseDto> listOrders(Long customerId, LocalDate start, LocalDate end) {
-        List<Order> orders = orderRepository.findByCustomerIdAndCreateDateBetween(customerId, start, end);
+    @Transactional
+    public List<OrderResponseDto> listOrders(Long customerId, LocalDate start, LocalDate end, String currentUsername) {
+        Customer currentUser = customerRepository.findByUsername(currentUsername)
+                .orElseThrow(() -> new RuntimeException("Current user not found"));
+
+        if (!currentUser.getRole().equals(Role.ROLE_ADMIN) && !currentUser.getId().equals(customerId)) {
+            throw new RuntimeException("You are not authorized to view these orders");
+        }
+
+        List<Order> orders = orderRepository.findByCustomerIdAndCreatedDateBetween(customerId, start, end);
         return orders.stream()
                 .map(OrderMapper::toDto)
                 .toList();
     }
 
     @Transactional
-    public OrderResponseDto depositTRY(Long customerId, double amount) {
+    public OrderResponseDto depositTRY(Long customerId, double amount, String currentUsername) {
         if (amount <= 0) {
             throw new IllegalArgumentException("Amount must be greater than zero");
         }
 
-        Customer customer = customerRepository.findById(customerId)
-                .orElseThrow(() -> new RuntimeException("Customer not found"));
+        Customer currentUser = customerRepository.findByUsername(currentUsername)
+                .orElseThrow(() -> new RuntimeException("Current user not found"));
+
+        if (!currentUser.getRole().equals(Role.ROLE_ADMIN) && !currentUser.getId().equals(customerId)) {
+            throw new RuntimeException("You are not authorized to deposit for another user");
+        }
+
+        Customer customer = customerRepository.findByIdAndIsDeletedFalse(customerId)
+                .orElseThrow(() -> new RuntimeException("Customer not found or deleted"));
 
         AssetList tryAssetList = assetListRepository.findByAssetName("TRY")
                 .orElseThrow(() -> new RuntimeException("TRY asset not found"));
@@ -169,6 +203,49 @@ public class OrderService {
         order = orderRepository.save(order);
         return OrderMapper.toDto(order);
     }
+
+    @Transactional
+    public OrderResponseDto withdrawTRY(Long customerId, double amount, String currentUsername) {
+        if (amount <= 0) {
+            throw new IllegalArgumentException("Amount must be greater than zero");
+        }
+
+        Customer currentUser = customerRepository.findByUsername(currentUsername)
+                .orElseThrow(() -> new RuntimeException("Current user not found"));
+
+        if (!currentUser.getRole().equals(Role.ROLE_ADMIN) && !currentUser.getId().equals(customerId)) {
+            throw new RuntimeException("You are not authorized to withdraw for another user");
+        }
+
+        Customer customer = customerRepository.findByIdAndIsDeletedFalse(customerId)
+                .orElseThrow(() -> new RuntimeException("Customer not found or deleted"));
+
+        AssetList tryAssetList = assetListRepository.findByAssetName("TRY")
+                .orElseThrow(() -> new RuntimeException("TRY asset not found"));
+
+        Asset tryAsset = getCustomerAsset(customerId, "TRY");
+
+        if (tryAsset.getUsableSize() < amount) {
+            throw new RuntimeException("Insufficient balance");
+        }
+
+        tryAsset.setSize(tryAsset.getSize() - amount);
+        tryAsset.setUsableSize(tryAsset.getUsableSize() - amount);
+        assetRepository.save(tryAsset);
+
+        Order order = new Order();
+        order.setCustomer(customer);
+        order.setAssetName("TRY");
+        order.setSize(amount);
+        order.setPrice(BigDecimal.ONE);
+        order.setOrderSide(OrderSide.SELL);
+        order.setOrderStatus(OrderStatus.MATCHED);
+        order.setAssetList(tryAssetList);
+
+        order = orderRepository.save(order);
+        return OrderMapper.toDto(order);
+    }
+
 
     @Transactional
     public void approveMatchedOrders(Long buyOrderId, Long sellOrderId) {

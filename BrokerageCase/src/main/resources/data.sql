@@ -6,3 +6,5 @@ INSERT INTO assetlist (asset_name, asset_full_name, current_price, is_deleted) V
 ('KRDMD', 'Kardemir Karabuk Demir Celik', 22.10, FALSE);
 
 
+INSERT INTO customers (name, surname, email, username, password, role, is_deleted)
+VALUES ('Admin', 'User', 'admin@mail.com', 'admin', '$2a$10$NYLEoVXc1IKdVvi34tJfBeA8YAqzI3fSQEbVS9lyIYGCeaCrB8pRq', 'ROLE_ADMIN', FALSE);
