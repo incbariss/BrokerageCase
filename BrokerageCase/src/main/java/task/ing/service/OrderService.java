@@ -98,9 +98,6 @@ public class OrderService {
                 assetListRepository.save(assetList);
 
                 Asset sellerTryAsset = getCustomerAsset(customer.getId(), "TRY");
-//                double totalPrice = dto.price().doubleValue() * dto.size();
-//                sellerTryAsset.setSize(sellerTryAsset.getSize() + totalPrice);
-//                sellerTryAsset.setUsableSize(sellerTryAsset.getUsableSize() + totalPrice);
                 sellerTryAsset.setSize(sellerTryAsset.getSize() + totalCost.doubleValue());
                 sellerTryAsset.setUsableSize(sellerTryAsset.getUsableSize() + totalCost.doubleValue());
                 assetRepository.save(sellerTryAsset);
