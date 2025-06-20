@@ -25,71 +25,26 @@ public class AssetController {
 
     private final AssetService assetService;
 
-    @GetMapping("/get/{customerId}")
+
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @GetMapping()
     @Operation(
-            summary = "Both USER and ADMIN can access",
+            summary = "USER",
             description = "Customers can see their own assets")
-    public ResponseEntity<List<AssetResponseDto>> getAssetsByCustomer(
-            @PathVariable @Positive(message = "Customer ID must be a positive number") Long customerId,
-            Authentication authentication) {
-
+    public ResponseEntity<List<AssetResponseDto>> getMyAssets(Authentication authentication) {
         String currentUsername = authentication.getName();
-
-        List<AssetResponseDto> assets = assetService.getAssetsByCustomerId(customerId, currentUsername);
+        List<AssetResponseDto> assets = assetService.getAssetsForCurrentUser(currentUsername);
         return ResponseEntity.ok(assets);
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/get-all-assets")
+    @GetMapping("/admin/all")
     @Operation(
-            summary = "Only ADMIN can access",
+            summary = "ADMIN",
             description = "Admin can see all the customers and their assets")
     public ResponseEntity<List<CustomerAssetsResponseDto>> getAllAssets() {
-        List<CustomerAssetsResponseDto> allAssets = assetService.getAllAssetsGroupedByCustomer();
+        List<CustomerAssetsResponseDto> allAssets = assetService.adminGetAllAssetsGroupedByCustomer();
         return ResponseEntity.ok(allAssets);
-    }
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @PostMapping("/add")
-    @Operation(
-            summary = "Only ADMIN can access",
-            description = "Admin can add a new asset to any customer")
-    public ResponseEntity<AssetResponseDto> addAsset(@Valid @RequestBody AssetCreateRequestDto dto) {
-        AssetResponseDto response = assetService.addAssetToCustomer(dto);
-        return ResponseEntity.ok(response);
-    }
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @PutMapping("/update/{id}")
-    @Operation(
-            summary = "Only ADMIN can access",
-            description = "Admin can update any customer's asset")
-    public ResponseEntity<AssetResponseDto> updateAsset(
-            @PathVariable Long id,
-            @Valid @RequestBody AssetUpdateRequestDto dto) {
-        AssetResponseDto response = assetService.updateAsset(id, dto);
-        return ResponseEntity.ok(response);
-    }
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(
-            summary = "Only ADMIN can access",
-            description = "Admin can delete any customer's asset")
-    @DeleteMapping("/delete/{id}")
-    public ResponseEntity<Void> deleteAsset(@PathVariable Long id) {
-        assetService.softDeleteAsset(id);
-        return ResponseEntity.noContent().build();
-    }
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @PatchMapping("/restore/{id}")
-    @Operation(
-            summary = "Only ADMIN can access",
-            description = "Admin can restore any customer's asset")
-    public ResponseEntity<Void> restoreAsset(@PathVariable Long id) {
-        assetService.restoreAsset(id);
-        return ResponseEntity.noContent().build();
     }
 
 

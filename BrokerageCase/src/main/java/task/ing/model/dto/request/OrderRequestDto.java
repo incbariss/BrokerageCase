@@ -10,8 +10,8 @@ import java.math.BigDecimal;
 
 public record OrderRequestDto(
 
-        @NotNull(message = "Customer ID cannot be blank")
-        Long customerId,
+//        @NotNull(message = "Customer ID cannot be blank")
+//        Long customerId,
 
         @NotBlank(message = "Asset name cannot be blank")
         @Pattern(regexp = "^[A-Z]{2,5}$", message = "Asset name must be uppercase letters only")

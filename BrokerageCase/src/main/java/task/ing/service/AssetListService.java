@@ -2,6 +2,8 @@ package task.ing.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import task.ing.exceptions.AssetMismatchException;
+import task.ing.exceptions.AssetNotFoundException;
 import task.ing.mapper.AssetListMapper;
 import task.ing.model.dto.request.AssetListRequestDto;
 import task.ing.model.dto.response.AssetListResponseDto;
@@ -23,7 +25,7 @@ public class AssetListService {
                 .stream()
                 .filter(asset -> !asset.isDeleted())
                 .map(AssetListMapper::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public AssetListResponseDto addAsset(AssetListRequestDto dto) {
@@ -39,7 +41,7 @@ public class AssetListService {
 
     public AssetListResponseDto updateAsset(Long id, AssetListRequestDto requestDto) {
         AssetList asset = assetListRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Asset not found"));
+                .orElseThrow(() -> new AssetNotFoundException("Asset not found"));
 
         asset.setAssetName(requestDto.assetName());
         asset.setAssetFullName(requestDto.assetFullName());
@@ -52,7 +54,7 @@ public class AssetListService {
 
     public void softDeleteAsset(Long id) {
         AssetList asset = assetListRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Asset not found"));
+                .orElseThrow(() -> new AssetNotFoundException("Asset not found"));
 
         asset.setDeleted(true);
         assetListRepository.save(asset);
@@ -60,7 +62,7 @@ public class AssetListService {
 
     public void restoreAsset(Long id) {
         AssetList asset = assetListRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Asset not found"));
+                .orElseThrow(() -> new AssetNotFoundException("Asset not found"));
 
         asset.setDeleted(false);
         assetListRepository.save(asset);

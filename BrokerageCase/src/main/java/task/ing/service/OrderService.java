@@ -2,7 +2,11 @@ package task.ing.service;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.aspectj.weaver.ast.Or;
+import org.springframework.security.authorization.AuthorizationDeniedException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import task.ing.exceptions.*;
 import task.ing.mapper.OrderMapper;
 import task.ing.model.dto.request.OrderRequestDto;
 import task.ing.model.dto.response.OrderResponseDto;
@@ -31,110 +35,136 @@ public class OrderService {
     private final AssetListRepository assetListRepository;
     private final CustomerRepository customerRepository;
 
+    public static final String TRY = "TRY";
+
+
     @Transactional
     public OrderResponseDto createOrder(OrderRequestDto dto, String currentUsername) {
-        Customer currentUser = customerRepository.findByUsername(currentUsername)
-                .orElseThrow(() -> new RuntimeException("Current user not found"));
+        return switch (dto.orderSide()) {
+            case BUY -> createBuyOrder(dto, currentUsername);
+            case SELL -> createSellOrder(dto, currentUsername);
+            default -> throw new IllegalArgumentException("Invalid order side");
+        };
+    }
 
-        if (!currentUser.getId().equals(dto.customerId())) {
-            throw new RuntimeException("You are not authorized to create an order for another user");
+    private OrderResponseDto createBuyOrder(OrderRequestDto dto, String currentUsername) {
+        Customer customer = validateCustomer(currentUsername);
+        AssetList assetList = getAssetList(dto.assetName());
+
+        BigDecimal totalCost = dto.price().multiply(BigDecimal.valueOf(dto.size()));
+        Asset tryAsset = getCustomerAsset(customer.getId(), TRY);
+
+        if (tryAsset.getUsableSize() < totalCost.doubleValue()) {
+            throw new InsufficientBalanceException("Insufficient TRY balance");
         }
 
-        Customer customer = customerRepository.findByIdAndIsDeletedFalse(dto.customerId())
-                .orElseThrow(() -> new RuntimeException("Customer not found or deleted"));
+        if (dto.price().compareTo(assetList.getCurrentPrice()) == 0) {
+            tryAsset.setSize(tryAsset.getSize() - totalCost.doubleValue());
+            tryAsset.setUsableSize(tryAsset.getUsableSize() - totalCost.doubleValue());
+            assetRepository.save(tryAsset);
 
-        AssetList assetList = assetListRepository.findByAssetName(dto.assetName())
-                .orElseThrow(() -> new RuntimeException("Asset not found"));
+            Order order = saveMatchedOrder(dto, assetList, customer);
+            updateAssetAfterBuy(customer, dto, assetList);
+
+            return OrderMapper.toDto(order);
+        } else {
+            tryAsset.setUsableSize(tryAsset.getUsableSize() - totalCost.doubleValue());
+            assetRepository.save(tryAsset);
+
+            Order order = savePendingOrder(dto, assetList, customer);
+
+            return OrderMapper.toDto(order);
+        }
+    }
+
+    private OrderResponseDto createSellOrder(OrderRequestDto dto, String currentUsername) {
+        Customer customer = validateCustomer(currentUsername);
+        AssetList assetList = getAssetList(dto.assetName());
+
+        Asset asset = getCustomerAsset(customer.getId(), dto.assetName());
+        if (asset.getUsableSize() < dto.size()) {
+            throw new InsufficientBalanceException("Insufficient asset balance");
+        }
 
         BigDecimal totalCost = dto.price().multiply(BigDecimal.valueOf(dto.size()));
 
-        if (dto.orderSide() == OrderSide.BUY) {
-            Asset tryAsset = getCustomerAsset(customer.getId(), "TRY");
-            if (tryAsset.getUsableSize() < totalCost.doubleValue()) {
-                throw new RuntimeException("Insufficient TRY balance");
-            }
+        if (dto.price().compareTo(assetList.getCurrentPrice()) == 0) {
+            asset.setSize(asset.getSize() - dto.size());
+            asset.setUsableSize(asset.getUsableSize() - dto.size());
+            assetRepository.save(asset);
 
-            if (dto.price().compareTo(assetList.getCurrentPrice()) == 0) {
-                tryAsset.setSize(tryAsset.getSize() - totalCost.doubleValue());
-                tryAsset.setUsableSize(tryAsset.getUsableSize() - totalCost.doubleValue());
-                assetRepository.save(tryAsset);
+            Order order = saveMatchedOrder(dto, assetList, customer);
+            updateAssetAfterSell(customer, totalCost);
 
-                Order order = OrderMapper.toEntity(dto, assetList, customer);
-                order.setOrderStatus(OrderStatus.MATCHED);
-                order = orderRepository.save(order);
+            return OrderMapper.toDto(order);
+        } else {
+            asset.setUsableSize(asset.getUsableSize() - dto.size());
+            assetRepository.save(asset);
 
-                assetList.setCurrentPrice(dto.price());
-                assetListRepository.save(assetList);
+            Order order = savePendingOrder(dto, assetList, customer);
 
-                Asset buyerAsset = getOrCreateCustomerAsset(customer, dto.assetName(), assetList);
-                buyerAsset.setSize(buyerAsset.getSize() + dto.size());
-                buyerAsset.setUsableSize(buyerAsset.getUsableSize() + dto.size());
-                assetRepository.save(buyerAsset);
-
-                return OrderMapper.toDto(order);
-            } else {
-                tryAsset.setUsableSize(tryAsset.getUsableSize() - totalCost.doubleValue());
-
-                Order order = OrderMapper.toEntity(dto, assetList, customer);
-                order.setOrderStatus(OrderStatus.PENDING);
-                return OrderMapper.toDto(orderRepository.save(order));
-            }
-        } else if (dto.orderSide() == OrderSide.SELL) {
-            Asset asset = getCustomerAsset(customer.getId(), dto.assetName());
-            if (asset.getUsableSize() < dto.size()) {
-                throw new RuntimeException("Insufficient asset balance");
-            }
-
-            if (dto.price().compareTo(assetList.getCurrentPrice()) == 0) {
-                asset.setSize(asset.getSize() - dto.size());
-                asset.setUsableSize(asset.getUsableSize() - dto.size());
-                assetRepository.save(asset);
-
-                Order order = OrderMapper.toEntity(dto, assetList, customer);
-                order.setOrderStatus(OrderStatus.MATCHED);
-                order = orderRepository.save(order);
-
-                assetList.setCurrentPrice(dto.price());
-                assetListRepository.save(assetList);
-
-                Asset sellerTryAsset = getCustomerAsset(customer.getId(), "TRY");
-                sellerTryAsset.setSize(sellerTryAsset.getSize() + totalCost.doubleValue());
-                sellerTryAsset.setUsableSize(sellerTryAsset.getUsableSize() + totalCost.doubleValue());
-                assetRepository.save(sellerTryAsset);
-
-                return OrderMapper.toDto(order);
-            } else {
-                asset.setUsableSize(asset.getUsableSize() - dto.size());
-
-                Order order = OrderMapper.toEntity(dto, assetList, customer);
-                order.setOrderStatus(OrderStatus.PENDING);
-                return OrderMapper.toDto(orderRepository.save(order));
-            }
+            return OrderMapper.toDto(order);
         }
+    }
 
-        throw new RuntimeException("Invalid order side");
+    private Customer validateCustomer(String currentUsername) {
+        return customerRepository.findByUsername(currentUsername)
+                .orElseThrow(() -> new UsernameNotFoundException("Current user not found"));
+    }
+
+    private AssetList getAssetList(String assetName) {
+        return assetListRepository.findByAssetName(assetName)
+                .orElseThrow(() -> new AssetNotFoundException("Asset not found"));
+    }
+
+    private Order saveMatchedOrder(OrderRequestDto dto, AssetList assetList, Customer customer) {
+        Order order = OrderMapper.toEntity(dto, assetList, customer);
+        order.setOrderStatus(OrderStatus.MATCHED);
+        assetList.setCurrentPrice(dto.price());
+        assetListRepository.save(assetList);
+        return orderRepository.save(order);
+    }
+
+    private Order savePendingOrder(OrderRequestDto dto, AssetList assetList, Customer customer) {
+        Order order = OrderMapper.toEntity(dto, assetList, customer);
+        order.setOrderStatus(OrderStatus.PENDING);
+        return orderRepository.save(order);
+    }
+
+    private void updateAssetAfterBuy(Customer customer, OrderRequestDto dto, AssetList assetList) {
+        Asset buyerAsset = getOrCreateCustomerAsset(customer, dto.assetName(), assetList);
+        buyerAsset.setSize(buyerAsset.getSize() + dto.size());
+        buyerAsset.setUsableSize(buyerAsset.getUsableSize() + dto.size());
+        assetRepository.save(buyerAsset);
+    }
+
+    private void updateAssetAfterSell(Customer customer, BigDecimal totalCost) {
+        Asset tryAsset = getCustomerAsset(customer.getId(), TRY);
+        tryAsset.setSize(tryAsset.getSize() + totalCost.doubleValue());
+        tryAsset.setUsableSize(tryAsset.getUsableSize() + totalCost.doubleValue());
+        assetRepository.save(tryAsset);
     }
 
 
     @Transactional
     public void cancelOrder(Long orderId, String currentUsername) {
         Customer currentUser = customerRepository.findByUsername(currentUsername)
-                .orElseThrow(() -> new RuntimeException("Current user not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("Current user not found"));
 
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
+                .orElseThrow(() -> new OrderNotFoundException("Order not found"));
 
         if (!currentUser.getRole().equals(Role.ROLE_ADMIN) &&
                 !order.getCustomer().getId().equals(currentUser.getId())) {
-            throw new RuntimeException("You are not authorized to cancel this order");
+            throw new AuthorizationDeniedException("You are not authorized to cancel this order");
         }
 
         if (order.getOrderStatus() != OrderStatus.PENDING) {
-            throw new RuntimeException("Only pending orders can be deleted");
+            throw new IllegalArgumentException("Only pending orders can be cancelled");
         }
 
         if (order.getOrderSide() == OrderSide.BUY) {
-            Asset tryAsset = getCustomerAsset(order.getCustomer().getId(), "TRY");
+            Asset tryAsset = getCustomerAsset(order.getCustomer().getId(), TRY);
             double refund = order.getPrice().doubleValue() * order.getSize();
             tryAsset.setUsableSize(tryAsset.getUsableSize() + refund);
             assetRepository.save(tryAsset);
@@ -150,80 +180,80 @@ public class OrderService {
 
 
     @Transactional
-    public List<OrderResponseDto> listOrders(Long customerId, LocalDate start, LocalDate end, String currentUsername) {
+    public List<OrderResponseDto> listOrdersForAdmin(Long customerId, LocalDate start, LocalDate end) {
+        Customer customer = customerRepository.findByIdAndIsDeletedFalse(customerId)
+                .orElseThrow(() -> new CustomerNotFoundException("Customer not found or deleted"));
+
+        List<Order> orders = orderRepository.findByCustomerIdAndCreatedDateBetween(customer.getId(), start, end);
+        return orders.stream()
+                .map(OrderMapper::toDto)
+                .toList();
+    }
+
+
+    @Transactional
+    public List<OrderResponseDto> listOrdersForCurrentUser(LocalDate start, LocalDate end, String currentUsername) {
         Customer currentUser = customerRepository.findByUsername(currentUsername)
-                .orElseThrow(() -> new RuntimeException("Current user not found"));
+                .orElseThrow(() -> new CustomerNotFoundException("Current user not found"));
 
-        if (!currentUser.getRole().equals(Role.ROLE_ADMIN) && !currentUser.getId().equals(customerId)) {
-            throw new RuntimeException("You are not authorized to view these orders");
-        }
-
-        List<Order> orders = orderRepository.findByCustomerIdAndCreatedDateBetween(customerId, start, end);
+        List<Order> orders = orderRepository.findByCustomerIdAndCreatedDateBetween(currentUser.getId(), start, end);
         return orders.stream()
                 .map(OrderMapper::toDto)
                 .toList();
     }
 
     @Transactional
-    public OrderResponseDto depositTRY(Long customerId, double amount, String currentUsername) {
+    public OrderResponseDto depositForCurrentUser(double amount, String currentUsername) {
         if (amount <= 0) {
             throw new IllegalArgumentException("Amount must be greater than zero");
         }
 
-        Customer currentUser = customerRepository.findByUsername(currentUsername)
-                .orElseThrow(() -> new RuntimeException("Current user not found"));
+        Customer customer = customerRepository.findByUsername(currentUsername)
+                .orElseThrow(() -> new CustomerNotFoundException("Current user not found"));
 
-        if (!currentUser.getRole().equals(Role.ROLE_ADMIN) && !currentUser.getId().equals(customerId)) {
-            throw new RuntimeException("You are not authorized to deposit for another user");
+        return depositInternal(customer, amount);
+    }
+
+    @Transactional
+    public OrderResponseDto withdrawForCurrentUser(double amount, String currentUsername) {
+        if (amount <= 0) {
+            throw new IllegalArgumentException("Amount must be greater than zero");
         }
 
-        Customer customer = customerRepository.findByIdAndIsDeletedFalse(customerId)
-                .orElseThrow(() -> new RuntimeException("Customer not found or deleted"));
+        Customer customer = customerRepository.findByUsername(currentUsername)
+                .orElseThrow(() -> new CustomerNotFoundException("Current user not found"));
 
-        AssetList tryAssetList = assetListRepository.findByAssetName("TRY")
-                .orElseThrow(() -> new RuntimeException("TRY asset not found"));
+        return withdrawInternal(customer, amount);
+    }
+    private OrderResponseDto depositInternal(Customer customer, double amount) {
+        AssetList tryAssetList = assetListRepository.findByAssetName(TRY)
+                .orElseThrow(() -> new AssetNotFoundException("TRY asset not found"));
 
-        Asset tryAsset = getCustomerAsset(customerId, "TRY");
+        Asset tryAsset = getCustomerAsset(customer.getId(), TRY);
         tryAsset.setSize(tryAsset.getSize() + amount);
         tryAsset.setUsableSize(tryAsset.getUsableSize() + amount);
         assetRepository.save(tryAsset);
 
         Order order = new Order();
         order.setCustomer(customer);
-        order.setAssetName("TRY");
+        order.setAssetName(TRY);
         order.setSize(amount);
         order.setPrice(BigDecimal.ONE);
         order.setOrderSide(OrderSide.BUY);
         order.setOrderStatus(OrderStatus.MATCHED);
         order.setAssetList(tryAssetList);
 
-        order = orderRepository.save(order);
-        return OrderMapper.toDto(order);
+        return OrderMapper.toDto(orderRepository.save(order));
     }
 
-    @Transactional
-    public OrderResponseDto withdrawTRY(Long customerId, double amount, String currentUsername) {
-        if (amount <= 0) {
-            throw new IllegalArgumentException("Amount must be greater than zero");
-        }
+    private OrderResponseDto withdrawInternal(Customer customer, double amount) {
+        AssetList tryAssetList = assetListRepository.findByAssetName(TRY)
+                .orElseThrow(() -> new AssetNotFoundException("TRY asset not found"));
 
-        Customer currentUser = customerRepository.findByUsername(currentUsername)
-                .orElseThrow(() -> new RuntimeException("Current user not found"));
-
-        if (!currentUser.getRole().equals(Role.ROLE_ADMIN) && !currentUser.getId().equals(customerId)) {
-            throw new RuntimeException("You are not authorized to withdraw for another user");
-        }
-
-        Customer customer = customerRepository.findByIdAndIsDeletedFalse(customerId)
-                .orElseThrow(() -> new RuntimeException("Customer not found or deleted"));
-
-        AssetList tryAssetList = assetListRepository.findByAssetName("TRY")
-                .orElseThrow(() -> new RuntimeException("TRY asset not found"));
-
-        Asset tryAsset = getCustomerAsset(customerId, "TRY");
+        Asset tryAsset = getCustomerAsset(customer.getId(), TRY);
 
         if (tryAsset.getUsableSize() < amount) {
-            throw new RuntimeException("Insufficient balance");
+            throw new InsufficientBalanceException("Insufficient balance");
         }
 
         tryAsset.setSize(tryAsset.getSize() - amount);
@@ -232,40 +262,41 @@ public class OrderService {
 
         Order order = new Order();
         order.setCustomer(customer);
-        order.setAssetName("TRY");
+        order.setAssetName(TRY);
         order.setSize(amount);
         order.setPrice(BigDecimal.ONE);
         order.setOrderSide(OrderSide.SELL);
         order.setOrderStatus(OrderStatus.MATCHED);
         order.setAssetList(tryAssetList);
 
-        order = orderRepository.save(order);
-        return OrderMapper.toDto(order);
+        return OrderMapper.toDto(orderRepository.save(order));
     }
+
+
 
 
     @Transactional
     public void approveMatchedOrders(Long buyOrderId, Long sellOrderId) {
         Order buyOrder = orderRepository.findById(buyOrderId)
-                .orElseThrow(() -> new RuntimeException("Buy order not found"));
+                .orElseThrow(() -> new OrderNotFoundException("Buy order not found"));
 
         Order sellOrder = orderRepository.findById(sellOrderId)
-                .orElseThrow(() -> new RuntimeException("Sell order not found"));
+                .orElseThrow(() -> new OrderNotFoundException("Sell order not found"));
 
         if (buyOrder.getOrderStatus() != OrderStatus.PENDING || sellOrder.getOrderStatus() != OrderStatus.PENDING) {
-            throw new RuntimeException("Only PENDING orders can be matched");
+            throw new InvalidOrderStatusException("Only PENDING orders can be matched");
         }
 
         if (buyOrder.getOrderSide() != OrderSide.BUY || sellOrder.getOrderSide() != OrderSide.SELL) {
-            throw new RuntimeException("Order sides are not valid for matching");
+            throw new InvalidOrderSideException("Order sides are not valid for matching");
         }
 
         if (buyOrder.getPrice().compareTo(sellOrder.getPrice()) != 0) {
-            throw new RuntimeException("Prices do not match");
+            throw new PriceMismatchException("Prices do not match");
         }
 
         if (!buyOrder.getAssetName().equals(sellOrder.getAssetName())) {
-            throw new RuntimeException("Assets do not match");
+            throw new AssetMismatchException("Assets do not match");
         }
 
         BigDecimal matchedSize = BigDecimal.valueOf(buyOrder.getSize()).min(BigDecimal.valueOf(sellOrder.getSize()));
@@ -275,7 +306,7 @@ public class OrderService {
         assetList.setCurrentPrice(buyOrder.getPrice());
         assetListRepository.save(assetList);
 
-        Asset buyerTryAsset = getCustomerAsset(buyOrder.getCustomer().getId(), "TRY");
+        Asset buyerTryAsset = getCustomerAsset(buyOrder.getCustomer().getId(), TRY);
         buyerTryAsset.setSize(BigDecimal.valueOf(buyerTryAsset.getSize()).subtract(totalPrice).doubleValue());
         assetRepository.save(buyerTryAsset);
 
@@ -284,7 +315,7 @@ public class OrderService {
         buyerAsset.setUsableSize(BigDecimal.valueOf(buyerAsset.getUsableSize()).add(matchedSize).doubleValue());
         assetRepository.save(buyerAsset);
 
-        Asset sellerTryAsset = getCustomerAsset(sellOrder.getCustomer().getId(), "TRY");
+        Asset sellerTryAsset = getCustomerAsset(sellOrder.getCustomer().getId(), TRY);
         sellerTryAsset.setSize(BigDecimal.valueOf(sellerTryAsset.getSize()).add(totalPrice).doubleValue());
         sellerTryAsset.setUsableSize(BigDecimal.valueOf(sellerTryAsset.getUsableSize()).add(totalPrice).doubleValue());
         assetRepository.save(sellerTryAsset);
@@ -312,13 +343,11 @@ public class OrderService {
 
         orderRepository.save(buyOrder);
         orderRepository.save(sellOrder);
-
-
     }
 
     private Asset getCustomerAsset(Long customerId, String assetName) {
         return assetRepository.findByCustomerIdAndAssetName(customerId, assetName)
-                .orElseThrow(() -> new RuntimeException("Asset not found for customer"));
+                .orElseThrow(() -> new AssetNotFoundException("Asset not found for customer"));
     }
 
     private Asset getOrCreateCustomerAsset(Customer customer, String assetName, AssetList assetList) {

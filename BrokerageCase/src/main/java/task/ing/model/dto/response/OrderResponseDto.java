@@ -8,7 +8,7 @@ import java.time.LocalDate;
 
 public record OrderResponseDto(
 
-        Long customerId,
+//        Long customerId,
 
         String assetName,
 

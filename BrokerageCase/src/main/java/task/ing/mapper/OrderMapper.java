@@ -23,7 +23,7 @@ public interface OrderMapper {
 
     static OrderResponseDto toDto(Order order) {
         return new OrderResponseDto(
-                order.getCustomer().getId(),
+//                order.getCustomer().getId(),
                 order.getAssetName(),
                 order.getPrice(),
                 order.getSize(),

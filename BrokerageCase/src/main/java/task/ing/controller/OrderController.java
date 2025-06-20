@@ -28,7 +28,7 @@ public class OrderController {
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     @PostMapping("/create")
     @Operation(
-            summary = "Both USER and ADMIN can access",
+            summary = "USER",
             description = "Customers can place orders at their desired prices")
     public ResponseEntity<OrderResponseDto> createOrder(
             @Valid @RequestBody OrderRequestDto requestDto,
@@ -41,26 +41,41 @@ public class OrderController {
     }
 
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    @GetMapping("/list")
+    @GetMapping("/my-orders")
     @Operation(
-            summary = "Both USER and ADMIN can access",
+            summary = "USER",
             description = "Customers can view their orders by applying a date filter.")
     public ResponseEntity<List<OrderResponseDto>> listOrders(
-            @RequestParam @Positive(message = "Customer ID must be positive") Long customerId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
             Authentication authentication) {
 
         String currentUsername = authentication.getName();
 
-        List<OrderResponseDto> orders = orderService.listOrders(customerId, start, end, currentUsername);
+        List<OrderResponseDto> orders = orderService.listOrdersForCurrentUser(start, end, currentUsername);
         return ResponseEntity.ok(orders);
     }
 
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    @DeleteMapping("/cancel/{orderId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/admin/orders")
     @Operation(
-            summary = "Both USER and ADMIN can access",
+            summary = "ADMIN",
+            description = "Admin can list customer orders by filtering date")
+    public ResponseEntity<List<OrderResponseDto>> listOrdersForCustomer(
+            @RequestParam @Positive(message = "Customer ID must be positive") Long customerId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
+
+        List<OrderResponseDto> orders = orderService.listOrdersForAdmin(customerId, start, end);
+        return ResponseEntity.ok(orders);
+    }
+
+
+
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @DeleteMapping("/{orderId}")
+    @Operation(
+            summary = "USER",
             description = "Customers can cancel their orders (Only Pending orders can be cancelled)")
     public ResponseEntity<Void> cancelOrder(
             @PathVariable @Positive(message = "Order ID must be positive") Long orderId,
@@ -71,44 +86,39 @@ public class OrderController {
         orderService.cancelOrder(orderId, currentUsername);
         return ResponseEntity.noContent().build();
     }
-
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    @PostMapping("/depositTRY")
+    @PostMapping("/deposit")
     @Operation(
-            summary = "Both USER and ADMIN can access",
+            summary = "USER",
             description = "Customers can deposit TRY before creating a new order")
-    public ResponseEntity<OrderResponseDto> depositTRY(
-            @RequestParam Long customerId,
+    public ResponseEntity<OrderResponseDto> depositTRYForCurrentUser(
             @RequestParam double amount,
             Authentication authentication) {
 
         String currentUsername = authentication.getName();
-
-        OrderResponseDto responseDto = orderService.depositTRY(customerId, amount, currentUsername);
+        OrderResponseDto responseDto = orderService.depositForCurrentUser(amount, currentUsername);
         return ResponseEntity.ok(responseDto);
     }
 
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    @PostMapping("/withdrawTRY")
+    @PostMapping("/withdraw")
     @Operation(
-            summary = "Both USER and ADMIN can access",
-            description = "Customers can withdraw TRY from their account")
-    public ResponseEntity<OrderResponseDto> withdrawTRY(
-            @RequestParam Long customerId,
+            summary = "USER",
+            description = "Customers can withdraw TRY from their account.")
+    public ResponseEntity<OrderResponseDto> withdrawTRYForCurrentUser(
             @RequestParam double amount,
             Authentication authentication) {
 
         String currentUsername = authentication.getName();
-
-        OrderResponseDto responseDto = orderService.withdrawTRY(customerId, amount, currentUsername);
+        OrderResponseDto responseDto = orderService.withdrawForCurrentUser(amount, currentUsername);
         return ResponseEntity.ok(responseDto);
     }
 
 
     @PreAuthorize("hasRole('ADMIN')")
-    @PostMapping("/match-orders")
+    @PostMapping("/admin/match")
     @Operation(
-            summary = "Only ADMIN can access",
+            summary = "ADMIN",
             description = "Admin can match the pending orders. (The asset list will reflect the most recent accepted order as the current price)")
     public ResponseEntity<String> approveMatchOrders(
             @RequestParam Long buyOrderId,

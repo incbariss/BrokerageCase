@@ -22,9 +22,9 @@ public class AssetListController {
     private final AssetListService assetListService;
 
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    @GetMapping("/get-all-assets")
+    @GetMapping("/all")
     @Operation(
-            summary = "Both USER and ADMIN can access",
+            summary = "USER",
             description = "Customers can see all the asset from the assetlist")
     public ResponseEntity<List<AssetListResponseDto>> getAssetList() {
         List<AssetListResponseDto> assetlist = assetListService.getAssetList();
@@ -32,9 +32,9 @@ public class AssetListController {
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    @PostMapping("/add-asset")
+    @PostMapping("/admin")
     @Operation(
-            summary = "Only ADMIN can access",
+            summary = "ADMIN",
             description = "Admin can add a new asset to the assetlist")
     public ResponseEntity<AssetListResponseDto> addAsset(
             @Valid @RequestBody AssetListRequestDto requestDto) {
@@ -43,9 +43,9 @@ public class AssetListController {
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    @PutMapping("/update-asset/{id}")
+    @PutMapping("/admin/{id}")
     @Operation(
-            summary = "Only ADMIN can access",
+            summary = "ADMIN",
             description = "Admin can update any asset from the assetlist")
     public ResponseEntity<AssetListResponseDto> updateAsset(
             @PathVariable Long id,
@@ -56,9 +56,9 @@ public class AssetListController {
 
 
     @PreAuthorize("hasRole('ADMIN')")
-    @DeleteMapping("/delete-asset/{id}")
+    @DeleteMapping("/admin/{id}")
     @Operation(
-            summary = "Only ADMIN can access",
+            summary = "ADMIN",
             description = "Admin can delete any asset from the assetlist")
     public ResponseEntity<Void> deleteAsset(@PathVariable Long id) {
         assetListService.softDeleteAsset(id);
@@ -67,9 +67,9 @@ public class AssetListController {
 
 
     @PreAuthorize("hasRole('ADMIN')")
-    @PatchMapping("/restore-asset/{id}")
+    @PatchMapping("/admin/{id}")
     @Operation(
-            summary = "Only ADMIN can access",
+            summary = "ADMIN",
             description = "Admin can restore any asset from the assetlist")
     public ResponseEntity<Void> restoreAsset(@PathVariable Long id) {
         assetListService.restoreAsset(id);

@@ -20,46 +20,41 @@ public class CustomerController {
 
     private final CustomerService customerService;
 
-    @PutMapping("/update/{id}")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PutMapping("/admin/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(
-            summary = "Both USER and ADMIN can access",
-            description = "While logged-in customers can update their own info, admin can update the information of any customer.")
+            summary = "ADMIN",
+            description = "Admin can update customer's info")
     public ResponseEntity<CustomerResponseDto> updateCustomer(
             @PathVariable Long id,
             @RequestBody @Valid CustomerRequestDto dto,
             Authentication authentication) {
 
         String currentUsername = authentication.getName();
-        CustomerResponseDto updated = customerService.updateCustomer(id, dto, currentUsername);
+        CustomerResponseDto updated = customerService.adminUpdateCustomer(id, dto, currentUsername);
         return ResponseEntity.ok(updated);
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
-    @DeleteMapping("/delete/{id}")
-    @Operation(
-            summary = "Only ADMIN can access",
-            description = "Admin can delete any customer.")
-    public ResponseEntity<Void> deleteCustomer(@PathVariable Long id) {
-        customerService.softDeleteCustomer(id);
-        return ResponseEntity.noContent().build();
-    }
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @PatchMapping("/restore/{id}")
-    @Operation(
-            summary = "Only ADMIN can access",
-            description = "Admin can restore any customer.")
-    public ResponseEntity<Void> restoreCustomer(@PathVariable Long id) {
-        customerService.restoreCustomer(id);
-        return ResponseEntity.ok().build();
-    }
-
-    @GetMapping("/get/{id}")
+    @PutMapping("/info")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     @Operation(
-            summary = "Both USER and ADMIN can access",
-            description = "While logged-in customers can only get their own info, admin can get the information of any customer.")
+            summary = "USER",
+            description = "Customers can update their own info")
+    public ResponseEntity<CustomerResponseDto> updateCustomerInfo(
+            @RequestBody @Valid CustomerRequestDto dto,
+            Authentication authentication) {
+
+        String currentUsername = authentication.getName();
+        CustomerResponseDto updated = customerService.updateCurrentCustomer(dto, currentUsername);
+        return ResponseEntity.ok(updated);
+    }
+
+
+    @GetMapping("/admin/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(
+            summary = "ADMIN",
+            description = "Admin can get customer's information by ID")
     public ResponseEntity<CustomerResponseDto> getCustomerById(
             @PathVariable Long id,
             Authentication authentication) {
@@ -68,6 +63,19 @@ public class CustomerController {
         CustomerResponseDto dto = customerService.getCustomerById(id, currentUsername);
         return ResponseEntity.ok(dto);
     }
+
+    @GetMapping("/info")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @Operation(
+            summary = "USER",
+            description = "Customers can get their own info")
+    public ResponseEntity<CustomerResponseDto> getCustomerInfo(Authentication authentication) {
+
+        String currentUsername = authentication.getName();
+        CustomerResponseDto dto = customerService.getCurrentCustomer(currentUsername);
+        return ResponseEntity.ok(dto);
+    }
+
 
 
 }
