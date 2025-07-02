@@ -11,7 +11,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "assets")
+@Table(name = "asset")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -21,8 +21,6 @@ public class Asset {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    private String assetName;
 
     private double size;
 

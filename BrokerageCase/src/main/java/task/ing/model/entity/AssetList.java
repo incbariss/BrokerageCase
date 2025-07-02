@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 @Entity
-@Table(name = "assetlist")
+@Table(name = "asset_list")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

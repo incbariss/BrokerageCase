@@ -26,7 +26,7 @@ public class OrderController {
     private final OrderService orderService;
 
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    @PostMapping("/create")
+    @PostMapping
     @Operation(
             summary = "USER",
             description = "Customers can place orders at their desired prices")

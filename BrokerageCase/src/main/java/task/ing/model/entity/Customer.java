@@ -14,7 +14,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 @Entity
-@Table(name = "customers")
+@Table(name = "customer")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -58,6 +58,4 @@ public class Customer {
 
     @LastModifiedBy
     private String lastModifiedBy;
-
-
 }

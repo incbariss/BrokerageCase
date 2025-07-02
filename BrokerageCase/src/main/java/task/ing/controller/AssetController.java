@@ -27,7 +27,7 @@ public class AssetController {
 
 
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    @GetMapping()
+    @GetMapping
     @Operation(
             summary = "USER",
             description = "Customers can see their own assets")
