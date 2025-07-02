@@ -22,6 +22,8 @@ public class Asset {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    private String assetName;
+
     private double size;
 
     private double usableSize;

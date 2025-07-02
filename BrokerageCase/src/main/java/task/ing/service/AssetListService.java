@@ -2,6 +2,7 @@ package task.ing.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import task.ing.exceptions.AssetMismatchException;
 import task.ing.exceptions.AssetNotFoundException;
 import task.ing.mapper.AssetListMapper;
 import task.ing.model.dto.request.AssetListRequestDto;
@@ -10,6 +11,8 @@ import task.ing.model.entity.AssetList;
 import task.ing.repository.AssetListRepository;
 
 import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor

@@ -346,15 +346,16 @@ public class OrderService {
     }
 
     private Asset getCustomerAsset(Long customerId, String assetName) {
-        return assetRepository.findByCustomerIdAndAssetListAssetName(customerId, assetName)
+        return assetRepository.findByCustomerIdAndAssetName(customerId, assetName)
                 .orElseThrow(() -> new AssetNotFoundException("Asset not found for customer"));
     }
 
     private Asset getOrCreateCustomerAsset(Customer customer, String assetName, AssetList assetList) {
-        return assetRepository.findByCustomerIdAndAssetListAssetName(customer.getId(), assetName)
+        return assetRepository.findByCustomerIdAndAssetName(customer.getId(), assetName)
                 .orElseGet(() -> {
                     Asset asset = new Asset();
                     asset.setCustomer(customer);
+                    asset.setAssetName(assetName);
                     asset.setSize(0);
                     asset.setUsableSize(0);
                     asset.setAssetList(assetList);

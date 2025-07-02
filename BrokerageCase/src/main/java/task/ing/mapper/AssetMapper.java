@@ -7,7 +7,7 @@ public interface AssetMapper {
 
     static AssetResponseDto toDto(Asset asset) {
         return new AssetResponseDto(
-                asset.getAssetList().getAssetName(),
+                asset.getAssetName(),
                 asset.getSize(),
                 asset.getUsableSize(),
                 asset.getAssetList().getCurrentPrice()

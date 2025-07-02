@@ -55,7 +55,7 @@ public class CustomerService {
                 .orElseThrow(() -> new AssetNotFoundException("TRY asset not found in AssetList"));
 
         Asset tryAsset = new Asset();
-        tryAsset.getAssetList().setAssetName("TRY");
+        tryAsset.setAssetName("TRY");
         tryAsset.setSize(0.0);
         tryAsset.setUsableSize(0.0);
         tryAsset.setCustomer(savedCustomer);
